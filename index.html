@@ -31,6 +31,7 @@
 
     html {
       scroll-behavior: smooth;
+      scroll-padding-top: var(--nav-offset);
     }
 
     body {
@@ -307,6 +308,10 @@
 
     section {
       padding: 70px 0;
+      scroll-margin-top: var(--nav-offset);
+    }
+    [id] {
+      scroll-margin-top: var(--nav-offset);
     }
 
     .section-head {
@@ -740,8 +745,8 @@
   <nav class="nav">
     <div class="container nav-inner">
       <a class="brand" href="#top" aria-label="Bastion home">
-        <span class="logo"></span>
-        <span>Bastion</span>
+        <!-- <span class="logo"></span> -->
+        <span>Bastion Portfolio Showcase</span>
       </a>
       <div class="nav-links" aria-label="Primary navigation">
         <a href="#results">Results</a>
@@ -857,8 +862,8 @@
 
   <footer id="contact" class="footer">
     <div class="container footer-inner">
-      <div>© <span id="year"></span> Bastion. Built as a static portfolio.</div>
-      <div>GitHub · Email · LinkedIn · CTFtime</div>
+      <div>© <span id="year"></span> Bastion</div>
+      <div><a href="https://github.com/BastionDevs" target="_blank" rel="noopener noreferrer">GitHub</a> · <a href="mailto:bastiongamessg@gmail.com">Email</a> · LinkedIn · CTFtime</div>
     </div>
   </footer>
 
@@ -934,6 +939,52 @@
     document.getElementById("totalResults").textContent = results.length;
     document.getElementById("totalCerts").textContent = certificates.length;
 
+    function getNavOffset() {
+      const nav = document.querySelector(".nav");
+      const cssOffset = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-offset")) || 0;
+      const navHeight = nav ? nav.getBoundingClientRect().height : 0;
+      return Math.max(cssOffset, navHeight + 24);
+    }
+
+    function updateNavOffset() {
+      const nav = document.querySelector(".nav");
+      if (!nav) return;
+      const offset = Math.ceil(nav.getBoundingClientRect().height + 24);
+      document.documentElement.style.setProperty("--nav-offset", `${offset}px`);
+    }
+
+    function scrollToHash(hash, shouldUpdateUrl = true) {
+      if (!hash || hash === "#") return;
+
+      if (hash === "#top") {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        if (shouldUpdateUrl) history.pushState(null, "", hash);
+        return;
+      }
+
+      const target = document.querySelector(hash);
+      if (!target) return;
+
+      const top = target.getBoundingClientRect().top + window.pageYOffset - getNavOffset();
+      window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+
+      if (shouldUpdateUrl) {
+        history.pushState(null, "", hash);
+      }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(link => {
+      link.addEventListener("click", event => {
+        const hash = link.getAttribute("href");
+        if (!hash || hash.length <= 1) return;
+        event.preventDefault();
+        scrollToHash(hash, true);
+      });
+    });
+
+    window.addEventListener("resize", updateNavOffset);
+    window.addEventListener("hashchange", () => scrollToHash(window.location.hash, false));
+    
     function renderChips() {
       filterChips.innerHTML = categories.map(category => `
         <button class="chip ${category === activeCategory ? "active" : ""}" data-category="${category}">
