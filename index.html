@@ -381,6 +381,19 @@
       background: rgba(124, 92, 255, 0.18);
     }
 
+    .chip-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 1.45em;
+      margin-left: 6px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text);
+      font-size: 0.78em;
+    }
+
     .grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -788,7 +801,7 @@
           <div class="stats">
             <div class="stat"><strong id="totalResults">0</strong><small>CTF results</small></div>
             <div class="stat"><strong id="totalCerts">0</strong><small>certificates</small></div>
-            <div class="stat"><strong>5</strong><small>categories</small></div>
+            <div class="stat"><strong id="totalCategories">0</strong><small>categories</small></div>
           </div>
         </aside>
       </div>
@@ -925,8 +938,6 @@
         image: "https://blahaj.sg/favicon.png"
       }
     ];
-
-    const categories = ["All", ...new Set(results.map(item => item.category))];
     let activeCategory = "All";
 
     const resultsGrid = document.getElementById("resultsGrid");
@@ -938,6 +949,7 @@
     document.getElementById("year").textContent = new Date().getFullYear();
     document.getElementById("totalResults").textContent = results.length;
     document.getElementById("totalCerts").textContent = certificates.length;
+    document.getElementById("totalCategories").textContent = getCategories().length - 1;
 
     function getNavOffset() {
       const nav = document.querySelector(".nav");
@@ -985,12 +997,66 @@
     window.addEventListener("resize", updateNavOffset);
     window.addEventListener("hashchange", () => scrollToHash(window.location.hash, false));
     
+    function getCategories() {
+      return ["All", ...new Set(results.map(item => item.category).filter(Boolean))];
+    }
+
+    function getSearchQuery() {
+      return searchInput.value.trim().toLowerCase();
+    }
+
+    function matchesSearch(item, query) {
+      if (!query) return true;
+
+      const searchable = [
+        item.title,
+        item.category,
+        item.rank,
+        item.date,
+        item.description,
+        ...(item.tags || [])
+      ].join(" ").toLowerCase();
+
+      return searchable.includes(query);
+    }
+
+    function getSearchFilteredResults() {
+      const query = getSearchQuery();
+      return results.filter(item => matchesSearch(item, query));
+    }
+
+    function getFilteredResults() {
+      const searchFiltered = getSearchFilteredResults();
+
+      if (activeCategory === "All") {
+        return searchFiltered;
+      }
+
+      return searchFiltered.filter(item => item.category === activeCategory);
+    }
+
     function renderChips() {
-      filterChips.innerHTML = categories.map(category => `
-        <button class="chip ${category === activeCategory ? "active" : ""}" data-category="${category}">
-          ${category}
-        </button>
-      `).join("");
+      const categories = getCategories();
+
+      if (!categories.includes(activeCategory)) {
+        activeCategory = "All";
+      }
+
+      const searchFiltered = getSearchFilteredResults();
+
+      filterChips.innerHTML = categories.map(category => {
+        const count = category === "All"
+          ? searchFiltered.length
+          : searchFiltered.filter(item => item.category === category).length;
+
+        return `
+          <button class="chip ${category === activeCategory ? "active" : ""}" data-category="${category}">
+            ${category}<span class="chip-count">${count}</span>
+          </button>
+        `;
+      }).join("");
+
+      document.getElementById("totalCategories").textContent = categories.length - 1;
 
       document.querySelectorAll(".chip").forEach(chip => {
         chip.addEventListener("click", () => {
@@ -1002,19 +1068,7 @@
     }
 
     function renderResults() {
-      const query = searchInput.value.trim().toLowerCase();
-      const filtered = results.filter(item => {
-        const categoryMatch = activeCategory === "All" || item.category === activeCategory;
-        const searchable = [
-          item.title,
-          item.category,
-          item.rank,
-          item.date,
-          item.description,
-          ...item.tags
-        ].join(" ").toLowerCase();
-        return categoryMatch && searchable.includes(query);
-      });
+      const filtered = getFilteredResults();
 
       resultsGrid.innerHTML = filtered.map(item => `
         <article class="card">
@@ -1026,7 +1080,7 @@
           <p>${item.description}</p>
           <div class="meta">
             <span>${item.date}</span>
-            ${item.tags.map(tag => `<span>${tag}</span>`).join("")}
+            ${(item.tags || []).map(tag => `<span>${tag}</span>`).join("")}
           </div>
         </article>
       `).join("");
@@ -1054,7 +1108,10 @@
       `).join("");
     }
 
-    searchInput.addEventListener("input", renderResults);
+    searchInput.addEventListener("input", () => {
+      renderChips();
+      renderResults();
+    });
     clearBtn.addEventListener("click", () => {
       searchInput.value = "";
       activeCategory = "All";
