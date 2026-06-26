@@ -654,6 +654,164 @@
       transform: translateX(4px);
     }
 
+
+    .cert-viewer {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: rgba(3, 6, 12, 0.78);
+      backdrop-filter: blur(18px);
+    }
+
+    .cert-viewer.open {
+      display: flex;
+    }
+
+    body.viewer-open {
+      overflow: hidden;
+    }
+
+    .cert-viewer-panel {
+      width: min(1120px, 100%);
+      height: min(760px, calc(100vh - 48px));
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: rgba(8, 11, 18, 0.94);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transform: translateY(10px) scale(0.98);
+      opacity: 0;
+      transition: transform 180ms ease, opacity 180ms ease;
+    }
+
+    .cert-viewer.open .cert-viewer-panel {
+      transform: translateY(0) scale(1);
+      opacity: 1;
+    }
+
+    .cert-viewer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .cert-viewer-title {
+      min-width: 0;
+    }
+
+    .cert-viewer-title strong {
+      display: block;
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .cert-viewer-title small {
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .cert-viewer-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .cert-viewer-open-link,
+    .cert-viewer-close {
+      border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      border-radius: 999px;
+      padding: 9px 12px;
+      font: inherit;
+      font-size: 0.9rem;
+      font-weight: 800;
+      cursor: pointer;
+      transition: 0.18s ease;
+    }
+
+    .cert-viewer-open-link:hover,
+    .cert-viewer-close:hover,
+    .cert-viewer-open-link:focus-visible,
+    .cert-viewer-close:focus-visible {
+      background: rgba(255, 255, 255, 0.13);
+      border-color: rgba(0, 229, 255, 0.42);
+      outline: none;
+    }
+
+    .cert-viewer-close {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 1.25rem;
+    }
+
+    .cert-viewer-body {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at top left, rgba(124, 92, 255, 0.16), transparent 24rem),
+        rgba(0, 0, 0, 0.2);
+    }
+
+    .cert-viewer-frame,
+    .cert-viewer-image {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+    }
+
+    .cert-viewer-image {
+      object-fit: contain;
+      padding: 22px;
+    }
+
+    .cert-viewer-fallback {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px;
+    }
+
+    @media (max-width: 620px) {
+      .cert-viewer {
+        padding: 12px;
+      }
+
+      .cert-viewer-panel {
+        height: calc(100vh - 24px);
+        border-radius: 18px;
+      }
+
+      .cert-viewer-head {
+        align-items: start;
+        flex-direction: column;
+      }
+
+      .cert-viewer-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
+    }
+
     .team-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -880,6 +1038,23 @@
     </div>
   </footer>
 
+
+  <div id="certViewer" class="cert-viewer" role="dialog" aria-modal="true" aria-labelledby="certViewerTitle" aria-hidden="true">
+    <div class="cert-viewer-panel" role="document">
+      <div class="cert-viewer-head">
+        <div class="cert-viewer-title">
+          <small id="certViewerMeta">Certificate</small>
+          <strong id="certViewerTitle">Certificate viewer</strong>
+        </div>
+        <div class="cert-viewer-actions">
+          <a id="certViewerOpenLink" class="cert-viewer-open-link" href="#" target="_blank" rel="noopener">Open in new tab</a>
+          <button id="certViewerClose" class="cert-viewer-close" type="button" aria-label="Close certificate viewer">×</button>
+        </div>
+      </div>
+      <div id="certViewerBody" class="cert-viewer-body"></div>
+    </div>
+  </div>
+
   <script>
     const results = [
       {
@@ -945,6 +1120,12 @@
     const searchInput = document.getElementById("searchInput");
     const clearBtn = document.getElementById("clearBtn");
     const emptyState = document.getElementById("emptyState");
+    const certViewer = document.getElementById("certViewer");
+    const certViewerTitle = document.getElementById("certViewerTitle");
+    const certViewerMeta = document.getElementById("certViewerMeta");
+    const certViewerBody = document.getElementById("certViewerBody");
+    const certViewerClose = document.getElementById("certViewerClose");
+    const certViewerOpenLink = document.getElementById("certViewerOpenLink");
 
     document.getElementById("year").textContent = new Date().getFullYear();
     document.getElementById("totalResults").textContent = results.length;
@@ -1088,9 +1269,48 @@
       emptyState.style.display = filtered.length ? "none" : "block";
     }
 
+    function isImageUrl(url) {
+      return /\.(png|jpe?g|gif|webp|svg)(\?.*)?$/i.test(url) || url.startsWith("data:image/");
+    }
+
+    function openCertificateViewer(cert) {
+      if (!cert || !cert.url) return;
+
+      certViewerTitle.textContent = cert.title || "Certificate";
+      certViewerMeta.textContent = `${cert.issuer || "Certificate"}${cert.year ? ` · ${cert.year}` : ""}`;
+      certViewerOpenLink.href = cert.url;
+      certViewerBody.innerHTML = "";
+
+      if (isImageUrl(cert.url)) {
+        const image = document.createElement("img");
+        image.className = "cert-viewer-image";
+        image.src = cert.url;
+        image.alt = cert.title || "Certificate";
+        certViewerBody.appendChild(image);
+      } else {
+        const frame = document.createElement("iframe");
+        frame.className = "cert-viewer-frame";
+        frame.src = cert.url;
+        frame.title = cert.title || "Certificate";
+        certViewerBody.appendChild(frame);
+      }
+
+      certViewer.classList.add("open");
+      certViewer.setAttribute("aria-hidden", "false");
+      document.body.classList.add("viewer-open");
+      certViewerClose.focus();
+    }
+
+    function closeCertificateViewer() {
+      certViewer.classList.remove("open");
+      certViewer.setAttribute("aria-hidden", "true");
+      document.body.classList.remove("viewer-open");
+      certViewerBody.innerHTML = "";
+    }
+
     function renderCertificates() {
-      document.getElementById("certGrid").innerHTML = certificates.map(cert => `
-        <a class="certificate ${cert.image ? "has-cert-image" : ""}" href="${cert.url}" target="_blank" rel="noopener" aria-label="View certificate: ${cert.title}">
+      document.getElementById("certGrid").innerHTML = certificates.map((cert, index) => `
+        <a class="certificate ${cert.image ? "has-cert-image" : ""}" href="${cert.url}" data-cert-index="${index}" aria-label="View certificate: ${cert.title}">
           <span class="cert-bg" aria-hidden="true"></span>
           <div class="seal">✓</div>
           ${cert.image ? `
@@ -1106,7 +1326,26 @@
           </div>
         </a>
       `).join("");
+
+      document.querySelectorAll(".certificate[data-cert-index]").forEach(card => {
+        card.addEventListener("click", event => {
+          event.preventDefault();
+          openCertificateViewer(certificates[Number(card.dataset.certIndex)]);
+        });
+      });
     }
+
+    certViewerClose.addEventListener("click", closeCertificateViewer);
+    certViewer.addEventListener("click", event => {
+      if (event.target === certViewer) {
+        closeCertificateViewer();
+      }
+    });
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape" && certViewer.classList.contains("open")) {
+        closeCertificateViewer();
+      }
+    });
 
     searchInput.addEventListener("input", () => {
       renderChips();
